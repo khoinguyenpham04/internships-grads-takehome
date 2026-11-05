@@ -104,7 +104,7 @@ export function ExplainMode({ schedule, overrides }: { schedule: Schedule; overr
     <div className="flex flex-col gap-5 px-4 pt-3 pb-8">
       <div className="flex h-7 items-center gap-3">
         <span className="text-[13px] font-medium">README example</span>
-        <span className="text-[12px] text-muted-foreground tabular-nums">
+        <span className="font-mono text-[11px] text-muted-foreground">
           --from={formatInstant(window.start)} --until={formatInstant(window.end)}
         </span>
         <div className="ml-auto flex items-center gap-1.5">

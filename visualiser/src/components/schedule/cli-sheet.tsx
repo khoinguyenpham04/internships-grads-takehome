@@ -2,7 +2,16 @@
 
 import { TerminalWindowIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { CodeBlock, CodeBlockActions, CodeBlockContent, CodeBlockCopyButton, CodeBlockHeader, CodeBlockTitle } from "@/components/ui/code-block";
+import {
+  CodeBlock,
+  CodeBlockActions,
+  CodeBlockContent,
+  CodeBlockCopyButton,
+  CodeBlockHeader,
+  CodeBlockLine,
+  CodeBlockTitle,
+} from "@/components/ui/code-block";
+import { useHighlightedCode } from "@/hooks/use-highlighted-code";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatInstant, render, toCliOutput, type Override, type Schedule, type Window } from "@/lib/schedule/engine";
@@ -45,7 +54,7 @@ export function CliSheet({ schedule, overrides, window }: Props) {
           </SheetDescription>
         </SheetHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">
-          <Snippet title="Command" value={command} />
+          <Snippet title="Command" value={command} language="bash" />
           <Tabs defaultValue="output" className="min-h-0">
             <TabsList variant="line">
               <TabsTrigger value="output">Output</TabsTrigger>
@@ -54,7 +63,7 @@ export function CliSheet({ schedule, overrides, window }: Props) {
             </TabsList>
             {(Object.keys(files) as (keyof typeof files)[]).map((key) => (
               <TabsContent key={key} value={key}>
-                <Snippet value={files[key]} />
+                <Snippet value={files[key]} language="json" />
               </TabsContent>
             ))}
           </Tabs>
@@ -64,7 +73,8 @@ export function CliSheet({ schedule, overrides, window }: Props) {
   );
 }
 
-function Snippet({ title, value }: { title?: string; value: string }) {
+function Snippet({ title, value, language }: { title?: string; value: string; language: string }) {
+  const lines = useHighlightedCode(value, language);
   return (
     <CodeBlock size="sm" className="shrink-0">
       {title ? (
@@ -79,7 +89,11 @@ function Snippet({ title, value }: { title?: string; value: string }) {
           <CodeBlockCopyButton value={value} />
         </CodeBlockActions>
       )}
-      <CodeBlockContent className="tabular-nums">{value}</CodeBlockContent>
+      <CodeBlockContent className="text-[12px]">
+        {lines.map((line, i) => (
+          <CodeBlockLine key={i}>{line}</CodeBlockLine>
+        ))}
+      </CodeBlockContent>
     </CodeBlock>
   );
 }
