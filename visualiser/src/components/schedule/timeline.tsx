@@ -5,7 +5,16 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { DAY, type Window } from "@/lib/schedule/engine";
 import { capitalise, formatDateTime, formatDuration, formatMonth, formatWeekday, personTone } from "@/lib/schedule/display";
 
-export type Block = { key: string; user: string; start: number; end: number; override: boolean; detail: string };
+export type Block = {
+  key: string;
+  user: string;
+  start: number;
+  end: number;
+  override: boolean;
+  detail: string;
+  fresh?: boolean;
+  muted?: boolean;
+};
 
 export type Row = { label: string } & ({ blocks: Block[] } | { lane: React.ReactNode });
 
@@ -15,6 +24,9 @@ type Props = {
   rows: Row[];
   now: number | null;
   boundaries?: number[];
+  activeBoundary?: number;
+  highlight?: { start: number; end: number } | null;
+  hideMonths?: boolean;
 };
 
 export const stripes = {
@@ -33,7 +45,7 @@ export const blockPosition = (left: number, width: number) => ({
 export const windowPercent = (window: Window) => (t: number) =>
   ((Math.min(Math.max(t, window.start), window.end) - window.start) / (window.end - window.start)) * 100;
 
-export function Timeline({ window, users, rows, now, boundaries = [] }: Props) {
+export function Timeline({ window, users, rows, now, boundaries = [], activeBoundary, highlight, hideMonths }: Props) {
   const pct = windowPercent(window);
   const inWindow = (t: number) => t >= window.start && t <= window.end;
 
@@ -58,7 +70,7 @@ export function Timeline({ window, users, rows, now, boundaries = [] }: Props) {
 
       <div className="flex min-w-0 flex-col">
         <div className="relative h-6">
-          {boundaries.length === 0 && months.map((m) => (
+          {!hideMonths && months.map((m) => (
             <span key={m.start} className="absolute top-1 pl-1.5 font-medium whitespace-nowrap" style={{ left: `${pct(m.start)}%` }}>
               {formatMonth(m.start)}
             </span>
@@ -109,16 +121,37 @@ export function Timeline({ window, users, rows, now, boundaries = [] }: Props) {
             </div>
           ))}
 
-          {boundaries.filter(inWindow).map((t, i, all) => (
-            <div key={t} className="pointer-events-none absolute top-0 bottom-0 w-px bg-signal-orange/45" style={{ left: `${pct(t)}%` }}>
+          {highlight && (
+            <div
+              className="pointer-events-none absolute top-8 bottom-0 bg-signal-orange/[0.07] transition-[left,width] duration-300 ease-out motion-reduce:transition-none"
+              style={{ left: `${pct(highlight.start)}%`, width: `${pct(highlight.end) - pct(highlight.start)}%` }}
+            />
+          )}
+
+          {boundaries.filter(inWindow).map((t, i) => (
+            <div
+              key={t}
+              className={cn(
+                "pointer-events-none absolute top-0 bottom-0 w-px animate-in fade-in duration-300 motion-reduce:animate-none",
+                activeBoundary === undefined || activeBoundary === i ? "bg-signal-orange/60" : "bg-signal-orange/25",
+              )}
+              style={{ left: `${pct(t)}%` }}
+            >
               <span
                 className={cn(
-                  "absolute -top-5 rounded-full",
-                  i === 0 ? "translate-x-0" : i === all.length - 1 ? "-translate-x-full" : "-translate-x-1/2",
+                  "absolute -top-5",
+                  pct(t) < 2 ? "translate-x-0" : pct(t) > 98 ? "-translate-x-full" : "-translate-x-1/2",
                 )}
               >
-                <span className="block rounded-full bg-signal-orange px-1.5 text-[10px] leading-4 font-semibold text-white tabular-nums">
-                {i + 1}
+                <span
+                  className={cn(
+                    "block rounded-full px-1.5 text-[10px] leading-4 font-semibold tabular-nums transition-colors",
+                    activeBoundary === undefined || activeBoundary === i
+                      ? "bg-signal-orange text-white"
+                      : "bg-signal-orange/15 text-signal-orange",
+                  )}
+                >
+                  {i + 1}
                 </span>
               </span>
             </div>
@@ -139,7 +172,13 @@ function TimelineBlock({ block, users, left, width }: { block: Block; users: str
       <TooltipTrigger asChild>
         <div
           tabIndex={0}
-          className={cn(blockClass, personTone(block.user, users))}
+          className={cn(
+            blockClass,
+            personTone(block.user, users),
+            "transition-opacity duration-300",
+            block.fresh && "animate-in fade-in zoom-in-95 duration-300 motion-reduce:animate-none",
+            block.muted && "opacity-35",
+          )}
           style={{ ...blockPosition(left, width), ...(block.override ? stripes : {}) }}
         >
           {width > 3 && <span className="truncate">{capitalise(block.user)}</span>}

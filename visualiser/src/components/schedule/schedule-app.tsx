@@ -2,20 +2,19 @@
 
 import { useEffect, useMemo, useReducer, useSyncExternalStore } from "react";
 import { ArrowLeftIcon, ArrowRightIcon, GlobeSimpleIcon } from "@phosphor-icons/react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ExplainMode } from "@/components/schedule/explain-mode";
 import { OverridesLane } from "@/components/schedule/overrides-lane";
 import { PersonChip } from "@/components/schedule/person-chip";
 import { RotationEditor } from "@/components/schedule/rotation-editor";
 import { Timeline, type Block, type Row } from "@/components/schedule/timeline";
-import { DAY, formatInstant, render, type Override, type Schedule, type Segment, type Window } from "@/lib/schedule/engine";
+import { DAY, render, type Override, type Schedule, type Segment, type Window } from "@/lib/schedule/engine";
 import { formatDateTime } from "@/lib/schedule/display";
-import { example, readmeWindow, reducer, viewWindow, type Range } from "@/lib/schedule/state";
+import { example, reducer, viewWindow, type Command, type Range, type State } from "@/lib/schedule/state";
 
 const subscribeToMinutes = (onChange: () => void) => {
   const id = setInterval(onChange, 30_000);
@@ -33,17 +32,10 @@ const segmentBlock = (s: Segment): Block => ({
   detail: s.source.kind === "override" ? "Override" : `Rotation shift ${s.source.shift + 1}`,
 });
 
-function timelineRows(schedule: Schedule, overrides: Override[], window: Window, lane?: React.ReactNode): Row[] {
+function timelineRows(schedule: Schedule, overrides: Override[], window: Window, lane: React.ReactNode): Row[] {
   return [
     { label: "Rotation", blocks: render(schedule, [], window).segments.map(segmentBlock) },
-    lane
-      ? { label: "Overrides", lane }
-      : {
-          label: "Overrides",
-          blocks: overrides
-            .filter((o) => o.end > window.start && o.start < window.end)
-            .map((o) => ({ key: o.id, user: o.user, start: o.start, end: o.end, override: true, detail: "Override" })),
-        },
+    { label: "Overrides", lane },
     { label: "Final", blocks: render(schedule, overrides, window).segments.map(segmentBlock) },
   ];
 }
@@ -91,8 +83,8 @@ function ScheduleMode({
   dispatch,
   now,
 }: {
-  state: typeof example;
-  dispatch: (c: Parameters<typeof reducer>[1]) => void;
+  state: State;
+  dispatch: (c: Command) => void;
   now: number | null;
 }) {
   const window = useMemo(() => viewWindow(state.view), [state.view]);
@@ -146,72 +138,6 @@ function ScheduleMode({
         </div>
       </div>
       <Timeline window={window} users={state.schedule.users} rows={rows} now={now} />
-    </div>
-  );
-}
-
-function ExplainMode({ schedule, overrides }: { schedule: Schedule; overrides: Override[] }) {
-  const window = readmeWindow;
-  const { boundaries, segments } = useMemo(() => render(schedule, overrides, window), [schedule, overrides, window]);
-  const rows = useMemo(() => timelineRows(schedule, overrides, window), [schedule, overrides, window]);
-  const gaps = boundaries.slice(1).map((end, i) => {
-    const start = boundaries[i];
-    const segment = segments.find((s) => s.start <= start && start < s.end)!;
-    return { start, end, segment, joined: i > 0 && segment.start < start };
-  });
-
-  return (
-    <div className="flex flex-col gap-6 px-4 pt-3 pb-8">
-      <div className="flex h-7 items-center gap-3">
-        <span className="text-[13px] font-medium">README example</span>
-        <span className="text-[12px] text-muted-foreground tabular-nums">
-          --from={formatInstant(window.start)} --until={formatInstant(window.end)}
-        </span>
-        <div className="ml-auto flex items-center gap-1.5">
-          <Badge variant="secondary">{boundaries.length} boundaries</Badge>
-          <Badge variant="secondary">{segments.length} entries</Badge>
-        </div>
-      </div>
-
-      <div className="pt-2">
-        <Timeline window={window} users={schedule.users} rows={rows} now={null} boundaries={boundaries} />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <p className="text-[12px] text-muted-foreground">
-          Between two neighbouring boundaries nothing changes, so each gap asks once: is an override active? If not, the
-          rotation decides.
-        </p>
-        <Table className="text-[12px]">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-16">Gap</TableHead>
-              <TableHead>From</TableHead>
-              <TableHead>To</TableHead>
-              <TableHead>On call</TableHead>
-              <TableHead>Because</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {gaps.map((g, i) => (
-              <TableRow key={g.start}>
-                <TableCell className="text-muted-foreground tabular-nums">
-                  {i + 1} → {i + 2}
-                </TableCell>
-                <TableCell className="tabular-nums">{formatDateTime(g.start)}</TableCell>
-                <TableCell className="tabular-nums">{formatDateTime(g.end)}</TableCell>
-                <TableCell>
-                  <PersonChip user={g.segment.user} users={schedule.users} />
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {g.segment.source.kind === "override" ? "Override is active" : `Rotation shift ${g.segment.source.shift + 1}`}
-                  {g.joined && " · joined with the gap before"}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
     </div>
   );
 }

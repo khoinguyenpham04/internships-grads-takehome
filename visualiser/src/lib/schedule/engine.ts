@@ -68,7 +68,7 @@ function whoIsOnCall(moment: number, schedule: Schedule, overrides: Override[]) 
   return { user: schedule.users[shift % schedule.users.length], source: { kind: "rotation", shift } as Source };
 }
 
-function sameSource(a: Source, b: Source) {
+export function sameSource(a: Source, b: Source) {
   return a.kind === "rotation" ? b.kind === "rotation" && a.shift === b.shift : b.kind === "override" && a.id === b.id;
 }
 
