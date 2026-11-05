@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DAY, HOUR, render } from "../src/lib/schedule/engine.ts";
-import { example, reducer, viewWindow, type Command } from "../src/lib/schedule/state.ts";
+import { example, parseStored, reducer, viewWindow, type Command } from "../src/lib/schedule/state.ts";
 
 const T0 = example.schedule.handoverStartAt;
 const run = (...commands: Command[]) => commands.reduce(reducer, example);
@@ -52,6 +52,20 @@ test("moving an override onto another is refused; moving it clear works and the 
 test("removing an override restores the rotation", () => {
   const state = run({ type: "removeOverride", id: "o1" });
   assert.deepEqual(render(state.schedule, state.overrides, { start: T0, end: T0 + 7 * DAY }).segments.map((s) => s.user), ["alice"]);
+});
+
+test("stored state round-trips, and anything malformed or overlapping is rejected", () => {
+  const edited = run({ type: "addUser", name: "dana" }, { type: "setRange", range: "2w" });
+  assert.deepEqual(parseStored(JSON.stringify(edited)), edited);
+  const broken = [
+    null,
+    "not json",
+    JSON.stringify({ ...edited, schedule: { ...edited.schedule, users: [] } }),
+    JSON.stringify({ ...edited, schedule: { ...edited.schedule, intervalDays: 1.5 } }),
+    JSON.stringify({ ...edited, view: { range: "1y", anchor: 0 } }),
+    JSON.stringify({ ...edited, overrides: [...edited.overrides, { ...edited.overrides[0], id: "copy" }] }),
+  ];
+  for (const raw of broken) assert.equal(parseStored(raw), null, String(raw));
 });
 
 test("windows: one month is the calendar month, two weeks start on Monday", () => {

@@ -10,6 +10,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { CliSheet } from "@/components/schedule/cli-sheet";
 import { PersonChip } from "@/components/schedule/person-chip";
 import { Timeline, type Block, type Row } from "@/components/schedule/timeline";
 import { formatInstant, render, sameSource, type Override, type Schedule, type Segment } from "@/lib/schedule/engine";
@@ -110,6 +111,7 @@ export function ExplainMode({ schedule, overrides }: { schedule: Schedule; overr
           <Badge variant="secondary" className="tabular-nums">{w.boundaries.length} boundaries</Badge>
           <Badge variant="secondary" className="tabular-nums">{w.gaps.length} gaps</Badge>
           <Badge variant="secondary" className="tabular-nums">{w.segments.length} entries</Badge>
+          <CliSheet schedule={schedule} overrides={overrides} window={window} />
         </div>
       </div>
 

@@ -1,12 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useSyncExternalStore } from "react";
-import { ArrowLeftIcon, ArrowRightIcon, GlobeSimpleIcon } from "@phosphor-icons/react";
+import { useEffect, useMemo, useReducer, useState, useSyncExternalStore } from "react";
+import { ArrowCounterClockwiseIcon, ArrowLeftIcon, ArrowRightIcon, CaretUpDownIcon, GlobeSimpleIcon } from "@phosphor-icons/react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { CliSheet } from "@/components/schedule/cli-sheet";
 import { ExplainMode } from "@/components/schedule/explain-mode";
 import { OverridesLane } from "@/components/schedule/overrides-lane";
 import { PersonChip } from "@/components/schedule/person-chip";
@@ -14,7 +33,7 @@ import { RotationEditor } from "@/components/schedule/rotation-editor";
 import { Timeline, type Block, type Row } from "@/components/schedule/timeline";
 import { DAY, render, type Override, type Schedule, type Segment, type Window } from "@/lib/schedule/engine";
 import { formatDateTime } from "@/lib/schedule/display";
-import { example, reducer, viewWindow, type Command, type Range, type State } from "@/lib/schedule/state";
+import { example, parseStored, reducer, viewWindow, type Command, type Range, type State } from "@/lib/schedule/state";
 
 const subscribeToMinutes = (onChange: () => void) => {
   const id = setInterval(onChange, 30_000);
@@ -22,6 +41,8 @@ const subscribeToMinutes = (onChange: () => void) => {
 };
 const currentMinute = () => Math.floor(Date.now() / 60_000) * 60_000;
 const useNow = () => useSyncExternalStore(subscribeToMinutes, currentMinute, () => null);
+
+const STORAGE_KEY = "on-call-visualiser";
 
 const segmentBlock = (s: Segment): Block => ({
   key: `${s.start}`,
@@ -44,6 +65,21 @@ export function ScheduleApp() {
   const [state, dispatch] = useReducer(reducer, example);
   const now = useNow();
   const { schedule, overrides } = state;
+  const [confirmReset, setConfirmReset] = useState(false);
+
+  useEffect(() => {
+    const stored = parseStored(localStorage.getItem(STORAGE_KEY));
+    if (stored) dispatch({ type: "restore", state: stored });
+  }, []);
+
+  useEffect(() => {
+    if (state !== example) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [state]);
+
+  const reset = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    dispatch({ type: "restore", state: example });
+  };
 
   const upcoming = useMemo(
     () => (now === null ? [] : render(schedule, overrides, { start: now, end: now + 60 * DAY }).segments.slice(0, 2)),
@@ -53,10 +89,39 @@ export function ScheduleApp() {
   return (
     <Tabs defaultValue="schedule" className="min-h-svh gap-0">
       <header className="relative flex h-12 shrink-0 items-center border-b px-4">
-        <div className="flex items-center gap-2 text-[13px] font-medium">
-          <span className="size-3 rounded-[3px] bg-signal-orange" />
-          Primary on-call
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="-ml-2 gap-2 text-[13px]">
+              <span className="size-3 rounded-[3px] bg-signal-orange" />
+              Primary on-call
+              <CaretUpDownIcon className="text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuLabel className="text-[12px]">Saved in this browser</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setConfirmReset(true)}>
+              <ArrowCounterClockwiseIcon />
+              Reset to README example
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <AlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Reset to the README example?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Your rotation and overrides are replaced with Alice, Bob and Charlie and the single override from the brief.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={reset}>
+                Reset
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <TabsList className="absolute left-1/2 h-7! -translate-x-1/2">
           <TabsTrigger value="schedule" className="px-3 text-[12px]">
             Schedule
@@ -121,6 +186,7 @@ function ScheduleMode({
           </Button>
         </Shortcut>
         <div className="ml-auto flex items-center gap-1.5">
+          <CliSheet schedule={state.schedule} overrides={state.overrides} window={window} />
           <RotationEditor schedule={state.schedule} dispatch={dispatch} />
           <span className="flex h-7 items-center gap-1.5 rounded-[min(var(--radius-md),10px)] border px-2.5 text-[12px] text-foreground/70">
             <GlobeSimpleIcon className="size-3.5" />

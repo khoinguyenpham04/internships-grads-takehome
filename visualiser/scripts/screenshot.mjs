@@ -68,7 +68,8 @@ try {
       await mouse("mousePressed", x, y, step.button);
       await mouse("mouseReleased", x, y, step.button);
     } else if (step.key) {
-      await send("Input.dispatchKeyEvent", { type: "keyDown", key: step.key, code: step.code, windowsVirtualKeyCode: step.keyCode });
+      const text = step.key === "Enter" ? "\r" : step.key.length === 1 ? step.key : undefined;
+      await send("Input.dispatchKeyEvent", { type: "keyDown", key: step.key, code: step.code, windowsVirtualKeyCode: step.keyCode, text });
       await send("Input.dispatchKeyEvent", { type: "keyUp", key: step.key, code: step.code, windowsVirtualKeyCode: step.keyCode });
     } else if (step.type) {
       await send("Input.insertText", { text: step.type });

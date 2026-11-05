@@ -17,7 +17,30 @@ export type Command =
   | { type: "setHandoverStart"; at: number }
   | { type: "addOverride"; override: Override }
   | { type: "updateOverride"; id: string; changes: Partial<Omit<Override, "id">> }
-  | { type: "removeOverride"; id: string };
+  | { type: "removeOverride"; id: string }
+  | { type: "restore"; state: State };
+
+const isTime = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
+export function parseStored(raw: string | null): State | null {
+  try {
+    const data = JSON.parse(raw ?? "null");
+    const { schedule: s, overrides: o, view: v } = data ?? {};
+    const validSchedule =
+      Array.isArray(s?.users) && s.users.length > 0 && s.users.every((u: unknown) => typeof u === "string" && u) &&
+      isTime(s.handoverStartAt) && Number.isInteger(s.intervalDays) && s.intervalDays > 0;
+    const validOverrides =
+      Array.isArray(o) &&
+      o.every((x) => typeof x?.id === "string" && typeof x.user === "string" && x.user && isTime(x.start) && isTime(x.end) && x.end > x.start);
+    const validView = (v?.range === "2w" || v?.range === "1m") && isTime(v.anchor);
+    if (!validSchedule || !validOverrides || !validView) return null;
+    const state: State = { schedule: s, overrides: [], view: v };
+    const restored = o.reduce((acc: State, override: Override) => placeOverride(acc, override), state);
+    return restored.overrides.length === o.length ? restored : null;
+  } catch {
+    return null;
+  }
+}
 
 export function conflictWith(overrides: Override[], candidate: Override) {
   return overrides.find((o) => o.id !== candidate.id && o.start < candidate.end && candidate.start < o.end);
@@ -95,6 +118,8 @@ export function reducer(state: State, command: Command): State {
     }
     case "removeOverride":
       return { ...state, overrides: state.overrides.filter((o) => o.id !== command.id) };
+    case "restore":
+      return command.state;
   }
 }
 
