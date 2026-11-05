@@ -1,4 +1,4 @@
-import { DAY, type Override, type Schedule, type Window } from "./engine";
+import { DAY, type Override, type Schedule, type Window } from "./engine.ts";
 
 export type Range = "2w" | "1m";
 
@@ -9,7 +9,12 @@ export type State = { schedule: Schedule; overrides: Override[]; view: View };
 export type Command =
   | { type: "step"; direction: 1 | -1 }
   | { type: "showToday"; now: number }
-  | { type: "setRange"; range: Range };
+  | { type: "setRange"; range: Range }
+  | { type: "addUser"; name: string }
+  | { type: "removeUser"; index: number }
+  | { type: "moveUser"; index: number; direction: 1 | -1 }
+  | { type: "setInterval"; days: number }
+  | { type: "setHandoverStart"; at: number };
 
 const readmeStart = Date.parse("2026-11-06T17:00:00Z");
 
@@ -47,5 +52,28 @@ export function reducer(state: State, command: Command): State {
       return { ...state, view: { ...view, anchor: command.now } };
     case "setRange":
       return { ...state, view: { ...view, range: command.range } };
+    case "addUser": {
+      const name = command.name.trim().toLowerCase();
+      return name ? withUsers(state, [...state.schedule.users, name]) : state;
+    }
+    case "removeUser": {
+      if (state.schedule.users.length === 1) return state;
+      return withUsers(state, state.schedule.users.filter((_, i) => i !== command.index));
+    }
+    case "moveUser": {
+      const users = [...state.schedule.users];
+      const target = command.index + command.direction;
+      if (target < 0 || target >= users.length) return state;
+      [users[command.index], users[target]] = [users[target], users[command.index]];
+      return withUsers(state, users);
+    }
+    case "setInterval": {
+      const days = Math.round(command.days);
+      return days >= 1 ? { ...state, schedule: { ...state.schedule, intervalDays: days } } : state;
+    }
+    case "setHandoverStart":
+      return Number.isFinite(command.at) ? { ...state, schedule: { ...state.schedule, handoverStartAt: command.at } } : state;
   }
 }
+
+const withUsers = (state: State, users: string[]): State => ({ ...state, schedule: { ...state.schedule, users } });

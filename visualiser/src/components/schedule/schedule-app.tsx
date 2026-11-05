@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useReducer, useSyncExternalStore } from "react";
 import { ArrowLeftIcon, ArrowRightIcon, GlobeSimpleIcon } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
@@ -10,9 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { PersonChip } from "@/components/schedule/person-chip";
+import { RotationEditor } from "@/components/schedule/rotation-editor";
 import { Timeline, type Block, type Row } from "@/components/schedule/timeline";
 import { DAY, formatInstant, render, type Override, type Schedule, type Segment, type Window } from "@/lib/schedule/engine";
-import { capitalise, formatDateTime, personTone } from "@/lib/schedule/display";
+import { formatDateTime } from "@/lib/schedule/display";
 import { example, readmeWindow, reducer, viewWindow, type Range } from "@/lib/schedule/state";
 
 const subscribeToMinutes = (onChange: () => void) => {
@@ -124,6 +125,7 @@ function ScheduleMode({
           </Button>
         </Shortcut>
         <div className="ml-auto flex items-center gap-1.5">
+          <RotationEditor schedule={state.schedule} dispatch={dispatch} />
           <span className="flex h-7 items-center gap-1.5 rounded-[min(var(--radius-md),10px)] border px-2.5 text-[12px] text-foreground/70">
             <GlobeSimpleIcon className="size-3.5" />
             UTC
@@ -218,14 +220,6 @@ function Shortcut({ label, keys, children }: { label: string; keys: string; chil
         {label} <Kbd>{keys}</Kbd>
       </TooltipContent>
     </Tooltip>
-  );
-}
-
-function PersonChip({ user, users }: { user: string; users: string[] }) {
-  return (
-    <span className={cn("inline-flex h-5 items-center rounded-[4px] px-1.5 text-[11px] font-semibold", personTone(user, users))}>
-      {capitalise(user)}
-    </span>
   );
 }
 
