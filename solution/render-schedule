@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+"""Print the final on-call schedule (rotation plus overrides) for a time window as JSON."""
+
+import argparse
+import json
+import sys
+
+from scheduler import InputError, entry_to_json, parse_overrides, parse_schedule, parse_time, render
+
+
+def load_json(path: str, label: str):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except OSError as e:
+        raise InputError(f"{label}: cannot read {path!r}: {e.strerror}") from None
+    except json.JSONDecodeError as e:
+        raise InputError(f"{label}: {path!r} is not valid JSON: {e}") from None
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--schedule", required=True, help="JSON file with the schedule")
+    parser.add_argument("--overrides", required=True, help="JSON file with an array of overrides")
+    parser.add_argument("--from", dest="start", required=True, help="start of the window (ISO 8601)")
+    parser.add_argument("--until", required=True, help="end of the window (ISO 8601)")
+    args = parser.parse_args()
+
+    try:
+        schedule = parse_schedule(load_json(args.schedule, "schedule"))
+        overrides = parse_overrides(load_json(args.overrides, "overrides"))
+        entries = render(
+            schedule, overrides, parse_time(args.start, "--from"), parse_time(args.until, "--until")
+        )
+    except InputError as e:
+        print(f"render-schedule: {e}", file=sys.stderr)
+        return 1
+
+    print(json.dumps([entry_to_json(e) for e in entries], indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
