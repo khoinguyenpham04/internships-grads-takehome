@@ -11,6 +11,9 @@ export const formatDateTime = (t: number) => `${formatDate(t)}, ${formatTime(t)}
 export const formatMonth = (t: number) => month.format(t);
 export const formatWeekday = (t: number) => weekday.format(t);
 
+export const formatRange = (start: number, end: number) =>
+  `${formatDateTime(start)} → ${formatDate(end) === formatDate(start) ? formatTime(end) : formatDateTime(end)}`;
+
 export function formatDuration(ms: number) {
   const hours = Math.round(ms / 3_600_000);
   if (hours < 24) return `${hours}h`;

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { OverridesLane } from "@/components/schedule/overrides-lane";
 import { PersonChip } from "@/components/schedule/person-chip";
 import { RotationEditor } from "@/components/schedule/rotation-editor";
 import { Timeline, type Block, type Row } from "@/components/schedule/timeline";
@@ -32,15 +33,17 @@ const segmentBlock = (s: Segment): Block => ({
   detail: s.source.kind === "override" ? "Override" : `Rotation shift ${s.source.shift + 1}`,
 });
 
-function timelineRows(schedule: Schedule, overrides: Override[], window: Window): Row[] {
+function timelineRows(schedule: Schedule, overrides: Override[], window: Window, lane?: React.ReactNode): Row[] {
   return [
     { label: "Rotation", blocks: render(schedule, [], window).segments.map(segmentBlock) },
-    {
-      label: "Overrides",
-      blocks: overrides
-        .filter((o) => o.end > window.start && o.start < window.end)
-        .map((o) => ({ key: o.id, user: o.user, start: o.start, end: o.end, override: true, detail: "Override" })),
-    },
+    lane
+      ? { label: "Overrides", lane }
+      : {
+          label: "Overrides",
+          blocks: overrides
+            .filter((o) => o.end > window.start && o.start < window.end)
+            .map((o) => ({ key: o.id, user: o.user, start: o.start, end: o.end, override: true, detail: "Override" })),
+        },
     { label: "Final", blocks: render(schedule, overrides, window).segments.map(segmentBlock) },
   ];
 }
@@ -93,7 +96,8 @@ function ScheduleMode({
   now: number | null;
 }) {
   const window = useMemo(() => viewWindow(state.view), [state.view]);
-  const rows = useMemo(() => timelineRows(state.schedule, state.overrides, window), [state.schedule, state.overrides, window]);
+  const lane = <OverridesLane window={window} users={state.schedule.users} overrides={state.overrides} dispatch={dispatch} />;
+  const rows = timelineRows(state.schedule, state.overrides, window, lane);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

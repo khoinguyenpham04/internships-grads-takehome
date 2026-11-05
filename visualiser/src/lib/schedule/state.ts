@@ -14,7 +14,21 @@ export type Command =
   | { type: "removeUser"; index: number }
   | { type: "moveUser"; index: number; direction: 1 | -1 }
   | { type: "setInterval"; days: number }
-  | { type: "setHandoverStart"; at: number };
+  | { type: "setHandoverStart"; at: number }
+  | { type: "addOverride"; override: Override }
+  | { type: "updateOverride"; id: string; changes: Partial<Omit<Override, "id">> }
+  | { type: "removeOverride"; id: string };
+
+export function conflictWith(overrides: Override[], candidate: Override) {
+  return overrides.find((o) => o.id !== candidate.id && o.start < candidate.end && candidate.start < o.end);
+}
+
+function placeOverride(state: State, candidate: Override): State {
+  const override = { ...candidate, user: candidate.user.trim().toLowerCase() };
+  if (!override.user || !(override.end > override.start) || conflictWith(state.overrides, override)) return state;
+  const others = state.overrides.filter((o) => o.id !== override.id);
+  return { ...state, overrides: [...others, override].sort((a, b) => a.start - b.start) };
+}
 
 const readmeStart = Date.parse("2026-11-06T17:00:00Z");
 
@@ -73,6 +87,14 @@ export function reducer(state: State, command: Command): State {
     }
     case "setHandoverStart":
       return Number.isFinite(command.at) ? { ...state, schedule: { ...state.schedule, handoverStartAt: command.at } } : state;
+    case "addOverride":
+      return state.overrides.some((o) => o.id === command.override.id) ? state : placeOverride(state, command.override);
+    case "updateOverride": {
+      const current = state.overrides.find((o) => o.id === command.id);
+      return current ? placeOverride(state, { ...current, ...command.changes, id: current.id }) : state;
+    }
+    case "removeOverride":
+      return { ...state, overrides: state.overrides.filter((o) => o.id !== command.id) };
   }
 }
 

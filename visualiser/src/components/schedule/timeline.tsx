@@ -7,7 +7,7 @@ import { capitalise, formatDateTime, formatDuration, formatMonth, formatWeekday,
 
 export type Block = { key: string; user: string; start: number; end: number; override: boolean; detail: string };
 
-export type Row = { label: string; blocks: Block[] };
+export type Row = { label: string } & ({ blocks: Block[] } | { lane: React.ReactNode });
 
 type Props = {
   window: Window;
@@ -17,14 +17,24 @@ type Props = {
   boundaries?: number[];
 };
 
-const stripes = {
+export const stripes = {
   backgroundImage:
     "repeating-linear-gradient(135deg, color-mix(in srgb, currentColor 28%, transparent) 0 1.5px, transparent 1.5px 5px)",
 };
 
+export const blockClass =
+  "absolute top-1/2 flex h-6 -translate-y-1/2 items-center overflow-hidden rounded-[4px] px-2 font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
+
+export const blockPosition = (left: number, width: number) => ({
+  left: `calc(${left}% + 1px)`,
+  width: `max(4px, calc(${width}% - 2px))`,
+});
+
+export const windowPercent = (window: Window) => (t: number) =>
+  ((Math.min(Math.max(t, window.start), window.end) - window.start) / (window.end - window.start)) * 100;
+
 export function Timeline({ window, users, rows, now, boundaries = [] }: Props) {
-  const span = window.end - window.start;
-  const pct = (t: number) => ((Math.min(Math.max(t, window.start), window.end) - window.start) / span) * 100;
+  const pct = windowPercent(window);
   const inWindow = (t: number) => t >= window.start && t <= window.end;
 
   const days: { start: number; full: boolean }[] = [];
@@ -91,9 +101,11 @@ export function Timeline({ window, users, rows, now, boundaries = [] }: Props) {
 
           {rows.map((row) => (
             <div key={row.label} className="relative h-12 border-b border-border/70">
-              {row.blocks.map((b) => (
-                <TimelineBlock key={b.key} block={b} users={users} left={pct(b.start)} width={pct(b.end) - pct(b.start)} />
-              ))}
+              {"lane" in row
+                ? row.lane
+                : row.blocks.map((b) => (
+                    <TimelineBlock key={b.key} block={b} users={users} left={pct(b.start)} width={pct(b.end) - pct(b.start)} />
+                  ))}
             </div>
           ))}
 
@@ -127,12 +139,8 @@ function TimelineBlock({ block, users, left, width }: { block: Block; users: str
       <TooltipTrigger asChild>
         <div
           tabIndex={0}
-          className={cn(
-            "absolute top-1/2 flex h-6 -translate-y-1/2 items-center overflow-hidden rounded-[4px] px-2 font-semibold outline-none",
-            "focus-visible:ring-2 focus-visible:ring-ring/50",
-            personTone(block.user, users),
-          )}
-          style={{ left: `calc(${left}% + 1px)`, width: `max(4px, calc(${width}% - 2px))`, ...(block.override ? stripes : {}) }}
+          className={cn(blockClass, personTone(block.user, users))}
+          style={{ ...blockPosition(left, width), ...(block.override ? stripes : {}) }}
         >
           {width > 3 && <span className="truncate">{capitalise(block.user)}</span>}
         </div>

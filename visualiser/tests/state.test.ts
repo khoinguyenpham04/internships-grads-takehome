@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DAY, render } from "../src/lib/schedule/engine.ts";
+import { DAY, HOUR, render } from "../src/lib/schedule/engine.ts";
 import { example, reducer, viewWindow, type Command } from "../src/lib/schedule/state.ts";
 
+const T0 = example.schedule.handoverStartAt;
 const run = (...commands: Command[]) => commands.reduce(reducer, example);
 
 test("the last person cannot be removed, so the rotation always renders", () => {
@@ -27,6 +28,30 @@ test("invalid intervals and times are ignored", () => {
   const state = run({ type: "setInterval", days: 0 }, { type: "setInterval", days: Number.NaN }, { type: "setHandoverStart", at: Number.NaN });
   assert.deepEqual(state.schedule, example.schedule);
   assert.equal(run({ type: "setInterval", days: 3 }).schedule.intervalDays, 3);
+});
+
+test("overlapping or empty overrides are refused, back-to-back ones are fine", () => {
+  const charlie = example.overrides[0];
+  const overlapping = { id: "x", user: "bob", start: charlie.start + HOUR, end: charlie.end + HOUR };
+  assert.deepEqual(run({ type: "addOverride", override: overlapping }).overrides, example.overrides);
+  assert.deepEqual(run({ type: "addOverride", override: { ...overlapping, start: 5, end: 5 } }).overrides, example.overrides);
+  const after = run({ type: "addOverride", override: { id: "x", user: " Bob ", start: charlie.end, end: charlie.end + HOUR } });
+  assert.deepEqual(after.overrides.map((o) => o.user), ["charlie", "bob"]);
+});
+
+test("moving an override onto another is refused; moving it clear works and the final schedule follows", () => {
+  const state = run(
+    { type: "addOverride", override: { id: "x", user: "bob", start: example.overrides[0].end + DAY, end: example.overrides[0].end + 2 * DAY } },
+    { type: "updateOverride", id: "x", changes: { start: example.overrides[0].start } },
+  );
+  assert.equal(state.overrides.find((o) => o.id === "x")!.start, example.overrides[0].end + DAY);
+  const moved = reducer(state, { type: "updateOverride", id: "o1", changes: { start: T0, end: T0 + HOUR } });
+  assert.equal(render(moved.schedule, moved.overrides, { start: T0, end: T0 + 2 * HOUR }).segments[0].user, "charlie");
+});
+
+test("removing an override restores the rotation", () => {
+  const state = run({ type: "removeOverride", id: "o1" });
+  assert.deepEqual(render(state.schedule, state.overrides, { start: T0, end: T0 + 7 * DAY }).segments.map((s) => s.user), ["alice"]);
 });
 
 test("windows: one month is the calendar month, two weeks start on Monday", () => {
